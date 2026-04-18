@@ -102,6 +102,7 @@ public sealed class PrototypeBallController : MonoBehaviour
             position += direction * travelDistance;
             remainingDistance -= travelDistance;
 
+            HandleHit(hit);
             direction = FlattenDirection(Vector3.Reflect(direction, hit.normal));
             velocity = direction * moveSpeed;
             position += hit.normal * collisionSkin;
@@ -111,6 +112,14 @@ public sealed class PrototypeBallController : MonoBehaviour
 
         position.y = fixedY;
         transform.position = position;
+    }
+
+    private static void HandleHit(in RaycastHit hit)
+    {
+        if (hit.collider.TryGetComponent(out PrototypeBrick brick))
+        {
+            brick.ApplyHit();
+        }
     }
 
     private void SnapToPaddle()
