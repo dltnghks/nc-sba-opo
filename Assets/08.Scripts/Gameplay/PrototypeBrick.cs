@@ -5,6 +5,8 @@ public sealed class PrototypeBrick : MonoBehaviour
     [SerializeField] private PrototypeBrickData brickData;
     [SerializeField] private int hitPoints = 1;
 
+    public int ScoreValue => brickData != null ? brickData.Score : 0;
+
     public void Configure(PrototypeBrickData configuredBrickData)
     {
         brickData = configuredBrickData;

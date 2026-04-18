@@ -2,6 +2,7 @@ using UnityEngine;
 
 public sealed class PrototypeRoundState : MonoBehaviour
 {
+    [SerializeField] private StringEventChannelSO roundEndedEvent;
     [SerializeField] private bool roundEnded;
 
     public bool IsRoundEnded => roundEnded;
@@ -27,10 +28,22 @@ public sealed class PrototypeRoundState : MonoBehaviour
         }
     }
 
-    public void FailRound()
+    public void HandleBallLost(PrototypeBallController ball)
     {
         if (roundEnded)
         {
+            return;
+        }
+
+        PrototypeSessionState sessionState = FindAnyObjectByType<PrototypeSessionState>();
+        if (sessionState != null && sessionState.TryConsumeLife())
+        {
+            if (ball != null)
+            {
+                ball.ResetToPaddle();
+            }
+
+            Debug.Log($"Life Lost. Remaining Lives: {sessionState.CurrentLives}");
             return;
         }
 
@@ -40,6 +53,16 @@ public sealed class PrototypeRoundState : MonoBehaviour
     private void EndRound(string result)
     {
         roundEnded = true;
-        Debug.Log($"Round Result: {result}");
+        PrototypeSessionState sessionState = FindAnyObjectByType<PrototypeSessionState>();
+        string sessionSummary = sessionState != null
+            ? $" | Score: {sessionState.Score} | Lives: {sessionState.CurrentLives}"
+            : string.Empty;
+        Debug.Log($"Round Result: {result}{sessionSummary}");
+        roundEndedEvent?.RaiseEvent(result);
+    }
+
+    public void Configure(StringEventChannelSO roundEndedEventChannel)
+    {
+        roundEndedEvent = roundEndedEventChannel;
     }
 }

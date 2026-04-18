@@ -82,6 +82,13 @@ public sealed class PrototypeBallController : MonoBehaviour
         SnapToPaddle();
     }
 
+    public void ResetToPaddle()
+    {
+        isLaunched = false;
+        velocity = Vector3.zero;
+        SnapToPaddle();
+    }
+
     private void Launch()
     {
         isLaunched = true;
@@ -126,17 +133,24 @@ public sealed class PrototypeBallController : MonoBehaviour
         transform.position = position;
     }
 
-    private static bool HandleHit(in RaycastHit hit)
+    private bool HandleHit(in RaycastHit hit)
     {
         if (hit.collider.TryGetComponent(out PrototypeFailZone failZone))
         {
-            failZone.TriggerFail();
+            failZone.TriggerFail(this);
             return true;
         }
 
         if (hit.collider.TryGetComponent(out PrototypeBrick brick))
         {
-            brick.ApplyHit();
+            if (brick.ApplyHit())
+            {
+                PrototypeSessionState sessionState = FindAnyObjectByType<PrototypeSessionState>();
+                if (sessionState != null)
+                {
+                    sessionState.AddScore(brick.ScoreValue);
+                }
+            }
         }
 
         return false;

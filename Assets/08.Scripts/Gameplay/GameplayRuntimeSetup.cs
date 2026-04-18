@@ -5,6 +5,9 @@ public static class GameplayRuntimeSetup
 {
     private const string PrototypeStageResourcePath = "Stages/PrototypeStage01";
     private const string PrototypeBrickCatalogResourcePath = "Stages/PrototypeBrickCatalog";
+    private const string ScoreChangedEventResourcePath = "Events/ScoreChanged";
+    private const string LivesChangedEventResourcePath = "Events/LivesChanged";
+    private const string RoundEndedEventResourcePath = "Events/RoundEnded";
     private const string BrickRootName = "@Bricks";
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -22,6 +25,11 @@ public static class GameplayRuntimeSetup
         }
 
         BuildStageLayout();
+
+        if (Object.FindAnyObjectByType<PrototypeSessionState>() == null)
+        {
+            CreateSessionState();
+        }
 
         if (Object.FindAnyObjectByType<PrototypeRoundState>() == null)
         {
@@ -62,7 +70,17 @@ public static class GameplayRuntimeSetup
     private static void CreateRoundState()
     {
         GameObject roundState = new("Prototype Round State");
-        roundState.AddComponent<PrototypeRoundState>();
+        PrototypeRoundState roundStateComponent = roundState.AddComponent<PrototypeRoundState>();
+        roundStateComponent.Configure(Resources.Load<StringEventChannelSO>(RoundEndedEventResourcePath));
+    }
+
+    private static void CreateSessionState()
+    {
+        GameObject sessionState = new("Prototype Session State");
+        PrototypeSessionState sessionStateComponent = sessionState.AddComponent<PrototypeSessionState>();
+        sessionStateComponent.Configure(
+            Resources.Load<IntEventChannelSO>(ScoreChangedEventResourcePath),
+            Resources.Load<IntEventChannelSO>(LivesChangedEventResourcePath));
     }
 
     private static void BuildStageLayout()
