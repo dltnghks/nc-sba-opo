@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 
 public sealed class BootstrapLoader : MonoBehaviour
 {
-    [SerializeField] private string gameplaySceneName = "Gameplay";
+    [SerializeField] private string gameplaySceneName = ProjectSceneNames.Gameplay;
 
     private void Start()
     {
