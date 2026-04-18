@@ -48,6 +48,12 @@ public sealed class PrototypeBallController : MonoBehaviour
 
     private void Update()
     {
+        PrototypeRoundState roundState = FindAnyObjectByType<PrototypeRoundState>();
+        if (roundState != null && roundState.IsRoundEnded)
+        {
+            return;
+        }
+
         if (paddle == null)
         {
             return;
@@ -91,7 +97,7 @@ public sealed class PrototypeBallController : MonoBehaviour
 
         for (int i = 0; i < 3 && remainingDistance > 0f; i++)
         {
-            if (!Physics.SphereCast(position, radius, direction, out RaycastHit hit, remainingDistance + collisionSkin, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (!Physics.SphereCast(position, radius, direction, out RaycastHit hit, remainingDistance + collisionSkin, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
             {
                 position += direction * remainingDistance;
                 remainingDistance = 0f;
@@ -102,7 +108,13 @@ public sealed class PrototypeBallController : MonoBehaviour
             position += direction * travelDistance;
             remainingDistance -= travelDistance;
 
-            HandleHit(hit);
+            if (HandleHit(hit))
+            {
+                position.y = fixedY;
+                transform.position = position;
+                return;
+            }
+
             direction = FlattenDirection(Vector3.Reflect(direction, hit.normal));
             velocity = direction * moveSpeed;
             position += hit.normal * collisionSkin;
@@ -114,12 +126,20 @@ public sealed class PrototypeBallController : MonoBehaviour
         transform.position = position;
     }
 
-    private static void HandleHit(in RaycastHit hit)
+    private static bool HandleHit(in RaycastHit hit)
     {
+        if (hit.collider.TryGetComponent(out PrototypeFailZone failZone))
+        {
+            failZone.TriggerFail();
+            return true;
+        }
+
         if (hit.collider.TryGetComponent(out PrototypeBrick brick))
         {
             brick.ApplyHit();
         }
+
+        return false;
     }
 
     private void SnapToPaddle()

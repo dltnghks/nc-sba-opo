@@ -17,6 +17,11 @@ public static class GameplayRuntimeSetup
             return;
         }
 
+        if (Object.FindAnyObjectByType<PrototypeRoundState>() == null)
+        {
+            CreateRoundState();
+        }
+
         PaddleMovement paddle = Object.FindAnyObjectByType<PaddleMovement>();
         if (paddle == null)
         {
@@ -46,5 +51,11 @@ public static class GameplayRuntimeSetup
 
         PrototypeBallController ballController = ball.AddComponent<PrototypeBallController>();
         ballController.SetPaddle(paddle);
+    }
+
+    private static void CreateRoundState()
+    {
+        GameObject roundState = new("Prototype Round State");
+        roundState.AddComponent<PrototypeRoundState>();
     }
 }
