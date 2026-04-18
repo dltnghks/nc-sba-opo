@@ -1,0 +1,58 @@
+name: Bug
+description: Track a gameplay, UI, or networking bug
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the problem clearly.
+      placeholder: Ball gets stuck bouncing vertically between two colliders.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction Steps
+      description: Write the shortest reliable reproduction path.
+      placeholder: |
+        1. Start gameplay scene
+        2. Launch the ball toward the left edge of the paddle
+        3. Observe repeated vertical bounce
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Result
+      placeholder: Ball angle should be redirected and escape the loop.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Result
+      placeholder: Ball remains trapped in a near-vertical bounce loop.
+    validations:
+      required: true
+
+  - type: textarea
+    id: related_area
+    attributes:
+      label: Related Area
+      placeholder: |
+        Scene:
+        Script:
+        Prefab:
+        System:
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Logs, screenshots, or possible cause.

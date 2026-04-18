@@ -1,0 +1,55 @@
+name: Feature
+description: Track a gameplay, system, or content implementation task
+title: "[Feature] "
+labels:
+  - feature
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: Describe the intended outcome in one or two sentences.
+      placeholder: Implement paddle movement with constrained X-axis control.
+    validations:
+      required: true
+
+  - type: textarea
+    id: work_items
+    attributes:
+      label: Work Items
+      description: List the concrete tasks needed to complete this issue.
+      placeholder: |
+        - Add input handling
+        - Move paddle object
+        - Clamp movement range
+        - Verify in gameplay scene
+    validations:
+      required: true
+
+  - type: textarea
+    id: done_criteria
+    attributes:
+      label: Done Criteria
+      description: Define how completion will be verified.
+      placeholder: |
+        - [ ] Works in play mode
+        - [ ] No console errors
+        - [ ] Movement range is clamped correctly
+    validations:
+      required: true
+
+  - type: textarea
+    id: related_area
+    attributes:
+      label: Related Area
+      description: Note the scene, script, prefab, or system impacted.
+      placeholder: |
+        Scene: 07.Scenes/Gameplay
+        Script: 08.Scripts/Gameplay
+        Prefab: 06.Prefabs/Characters
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional risks, follow-ups, or design notes.
