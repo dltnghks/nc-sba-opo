@@ -42,6 +42,7 @@ This project uses numbered top-level folders under `Assets/` to keep the main ca
 - Keep subfolders semantic and do not continue numbering below the top level.
 - Put reusable assets in technical folders, not inside scene folders.
 - Keep scene-specific temporary assets near the scene only if reuse is unlikely.
+- Keep a `.gitkeep` file in reserved empty folders so the intended Unity structure survives clone.
 - Use `Resources` only when another loading path is not practical.
 - Put third-party assets in `Plugins` and do not mix them with project-owned code.
 - Promote stable feature data to `04.Data/ScriptableObjects` instead of hard-coding values.
