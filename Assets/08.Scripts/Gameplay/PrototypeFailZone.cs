@@ -11,12 +11,12 @@ public sealed class PrototypeFailZone : MonoBehaviour
         }
     }
 
-    public void TriggerFail()
+    public void TriggerFail(PrototypeBallController ball)
     {
         PrototypeRoundState roundState = FindAnyObjectByType<PrototypeRoundState>();
         if (roundState != null)
         {
-            roundState.FailRound();
+            roundState.HandleBallLost(ball);
         }
     }
 }

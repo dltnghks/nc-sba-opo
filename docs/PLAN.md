@@ -39,14 +39,22 @@ The safest production order is:
 - Player spawn
 - Ready state and game start sync
 
-### M4 Co-op Mechanics
+### M4 Gameplay Sync
+
+- Host-authoritative game state manager
+- Synchronize paddle and player input state
+- Synchronize ball state
+- Synchronize brick state and round results
+- Add multiplayer desync test checklist
+
+### M5 Co-op Mechanics
 
 - Shared objective rules
 - At least one co-op-specific brick gimmick
 - Team-based power-up design
 - Co-op round result flow
 
-### M5 Polish
+### M6 Polish
 
 - Feedback and VFX
 - Sound mix improvement

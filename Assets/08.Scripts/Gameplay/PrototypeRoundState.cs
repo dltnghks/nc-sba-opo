@@ -2,9 +2,12 @@ using UnityEngine;
 
 public sealed class PrototypeRoundState : MonoBehaviour
 {
+    [SerializeField] private StringEventChannelSO roundEndedEvent;
     [SerializeField] private bool roundEnded;
+    [SerializeField] private string lastResult;
 
     public bool IsRoundEnded => roundEnded;
+    public string LastResult => lastResult;
 
     private void Awake()
     {
@@ -27,10 +30,28 @@ public sealed class PrototypeRoundState : MonoBehaviour
         }
     }
 
-    public void FailRound()
+    public void HandleBallLost(PrototypeBallController ball)
     {
         if (roundEnded)
         {
+            return;
+        }
+
+        PrototypeSessionState sessionState = FindAnyObjectByType<PrototypeSessionState>();
+        if (sessionState != null && sessionState.TryConsumeLife())
+        {
+            if (ball != null)
+            {
+                ball.ResetToPaddle();
+            }
+
+            PrototypeAudioManager audioManager = FindAnyObjectByType<PrototypeAudioManager>();
+            if (audioManager != null)
+            {
+                audioManager.PlayLifeLost();
+            }
+
+            Debug.Log($"Life Lost. Remaining Lives: {sessionState.CurrentLives}");
             return;
         }
 
@@ -40,6 +61,24 @@ public sealed class PrototypeRoundState : MonoBehaviour
     private void EndRound(string result)
     {
         roundEnded = true;
-        Debug.Log($"Round Result: {result}");
+        lastResult = result;
+        PrototypeSessionState sessionState = FindAnyObjectByType<PrototypeSessionState>();
+        string sessionSummary = sessionState != null
+            ? $" | Score: {sessionState.Score} | Lives: {sessionState.CurrentLives}"
+            : string.Empty;
+
+        PrototypeAudioManager audioManager = FindAnyObjectByType<PrototypeAudioManager>();
+        if (audioManager != null)
+        {
+            audioManager.PlayRoundEnd(result == "Clear");
+        }
+
+        Debug.Log($"Round Result: {result}{sessionSummary}");
+        roundEndedEvent?.RaiseEvent(result);
+    }
+
+    public void Configure(StringEventChannelSO roundEndedEventChannel)
+    {
+        roundEndedEvent = roundEndedEventChannel;
     }
 }
