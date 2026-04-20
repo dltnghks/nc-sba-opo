@@ -141,9 +141,25 @@ public sealed class PrototypeBallController : MonoBehaviour
             return true;
         }
 
+        if (hit.collider.TryGetComponent(out PaddleMovement _))
+        {
+            PrototypeAudioManager audioManager = FindAnyObjectByType<PrototypeAudioManager>();
+            if (audioManager != null)
+            {
+                audioManager.PlayPaddleHit();
+            }
+        }
+
         if (hit.collider.TryGetComponent(out PrototypeBrick brick))
         {
-            if (brick.ApplyHit())
+            bool destroyed = brick.ApplyHit();
+            PrototypeAudioManager audioManager = FindAnyObjectByType<PrototypeAudioManager>();
+            if (audioManager != null)
+            {
+                audioManager.PlayBrickHit(destroyed);
+            }
+
+            if (destroyed)
             {
                 PrototypeSessionState sessionState = FindAnyObjectByType<PrototypeSessionState>();
                 if (sessionState != null)

@@ -26,8 +26,9 @@
 - `M1`: Prototype
 - `M2`: Single-player Core
 - `M3`: Multiplayer Connection
-- `M4`: Co-op Mechanics
-- `M5`: Polish
+- `M4`: Gameplay Sync
+- `M5`: Co-op Mechanics
+- `M6`: Polish
 
 Detailed milestone notes live in [`docs/PLAN.md`](docs/PLAN.md).
 

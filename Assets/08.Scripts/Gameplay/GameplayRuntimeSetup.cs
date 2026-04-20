@@ -36,6 +36,21 @@ public static class GameplayRuntimeSetup
             CreateRoundState();
         }
 
+        if (Object.FindAnyObjectByType<PrototypeHudController>() == null)
+        {
+            CreateHud();
+        }
+
+        if (Object.FindAnyObjectByType<PrototypeResultFlowController>() == null)
+        {
+            CreateResultFlowController();
+        }
+
+        if (Object.FindAnyObjectByType<PrototypeAudioManager>() == null)
+        {
+            CreateAudioManager();
+        }
+
         PaddleMovement paddle = Object.FindAnyObjectByType<PaddleMovement>();
         if (paddle == null)
         {
@@ -81,6 +96,29 @@ public static class GameplayRuntimeSetup
         sessionStateComponent.Configure(
             Resources.Load<IntEventChannelSO>(ScoreChangedEventResourcePath),
             Resources.Load<IntEventChannelSO>(LivesChangedEventResourcePath));
+    }
+
+    private static void CreateHud()
+    {
+        GameObject hud = new("Prototype HUD");
+        PrototypeHudController hudController = hud.AddComponent<PrototypeHudController>();
+        hudController.Configure(
+            Resources.Load<IntEventChannelSO>(ScoreChangedEventResourcePath),
+            Resources.Load<IntEventChannelSO>(LivesChangedEventResourcePath),
+            Resources.Load<StringEventChannelSO>(RoundEndedEventResourcePath));
+    }
+
+    private static void CreateResultFlowController()
+    {
+        GameObject resultFlow = new("Prototype Result Flow");
+        PrototypeResultFlowController resultFlowController = resultFlow.AddComponent<PrototypeResultFlowController>();
+        resultFlowController.Configure(Resources.Load<StringEventChannelSO>(RoundEndedEventResourcePath));
+    }
+
+    private static void CreateAudioManager()
+    {
+        GameObject audioManager = new("Prototype Audio Manager");
+        audioManager.AddComponent<PrototypeAudioManager>();
     }
 
     private static void BuildStageLayout()
