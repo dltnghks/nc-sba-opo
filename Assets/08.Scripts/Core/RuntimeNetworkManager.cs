@@ -1,12 +1,16 @@
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
+using Unity.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 
 public sealed class RuntimeNetworkManager : MonoBehaviour
 {
     private const ushort DefaultPort = 7777;
     private const string SavedRoomCodeKey = "bootstrap.saved_room_code";
     private const string SavedRoomAddressKey = "bootstrap.saved_room_address";
+    private const string LobbySnapshotMessageName = "lobby-snapshot";
 
     private static RuntimeNetworkManager instance;
 
@@ -17,6 +21,7 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     private UnityTransport unityTransport;
     private string statusMessage = "Network idle";
     private string currentRoomCode = string.Empty;
+    private readonly List<ulong> connectedPlayerIds = new();
 
     public static RuntimeNetworkManager Instance
     {
@@ -40,6 +45,9 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     public string SavedRoomCode => PlayerPrefs.GetString(SavedRoomCodeKey, string.Empty);
     public string SavedRoomAddress => PlayerPrefs.GetString(SavedRoomAddressKey, connectAddress);
     public bool HasSavedRoom => !string.IsNullOrWhiteSpace(SavedRoomCode);
+    public IReadOnlyList<ulong> ConnectedPlayerIds => connectedPlayerIds;
+    public ulong LocalClientId => networkManager != null ? networkManager.LocalClientId : 0;
+    public bool IsHost => networkManager != null && networkManager.IsHost;
 
     private void Awake()
     {
@@ -141,11 +149,13 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     {
         if (networkManager == null || !networkManager.IsListening)
         {
+            connectedPlayerIds.Clear();
             SetIdleStatus();
             return;
         }
 
         networkManager.Shutdown();
+        connectedPlayerIds.Clear();
         SetStatus(BuildStatusPrefix("Network stopped"));
     }
 
@@ -204,6 +214,8 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         networkManager.OnClientConnectedCallback += HandleClientConnected;
         networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
         networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
+        networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(LobbySnapshotMessageName);
+        networkManager.CustomMessagingManager.RegisterNamedMessageHandler(LobbySnapshotMessageName, HandleLobbySnapshot);
     }
 
     private void UnregisterCallbacks()
@@ -211,10 +223,13 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         networkManager.OnServerStarted -= HandleServerStarted;
         networkManager.OnClientConnectedCallback -= HandleClientConnected;
         networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
+        networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(LobbySnapshotMessageName);
     }
 
     private void HandleServerStarted()
     {
+        RefreshConnectedPlayerIdsFromHost();
+        LoadSceneIfNeeded(ProjectSceneNames.Lobby);
         SetStatus(BuildStatusPrefix("Host listening"));
     }
 
@@ -222,12 +237,17 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     {
         if (networkManager.IsHost)
         {
+            RefreshConnectedPlayerIdsFromHost();
+            BroadcastLobbySnapshot();
             SetStatus(BuildStatusPrefix($"Host connected client {clientId}"));
             return;
         }
 
         if (networkManager.LocalClientId == clientId)
         {
+            connectedPlayerIds.Clear();
+            connectedPlayerIds.Add(clientId);
+            LoadSceneIfNeeded(ProjectSceneNames.Lobby);
             SetStatus(BuildStatusPrefix("Client connected"));
         }
     }
@@ -236,14 +256,84 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     {
         if (networkManager.IsHost)
         {
+            RefreshConnectedPlayerIdsFromHost();
+            BroadcastLobbySnapshot();
             SetStatus(BuildStatusPrefix($"Client {clientId} disconnected"));
             return;
         }
 
         if (networkManager.LocalClientId == clientId || !networkManager.IsListening)
         {
+            connectedPlayerIds.Clear();
             SetStatus(BuildStatusPrefix("Disconnected"));
         }
+    }
+
+    private void RefreshConnectedPlayerIdsFromHost()
+    {
+        connectedPlayerIds.Clear();
+        if (networkManager == null)
+        {
+            return;
+        }
+
+        foreach (ulong clientId in networkManager.ConnectedClientsIds)
+        {
+            connectedPlayerIds.Add(clientId);
+        }
+    }
+
+    private void BroadcastLobbySnapshot()
+    {
+        if (networkManager == null || !networkManager.IsHost)
+        {
+            return;
+        }
+
+        using FastBufferWriter writer = new(sizeof(int) + (sizeof(ulong) * Mathf.Max(connectedPlayerIds.Count, 1)), Allocator.Temp);
+        writer.WriteValueSafe(connectedPlayerIds.Count);
+        for (int index = 0; index < connectedPlayerIds.Count; index++)
+        {
+            writer.WriteValueSafe(connectedPlayerIds[index]);
+        }
+
+        for (int index = 0; index < connectedPlayerIds.Count; index++)
+        {
+            ulong targetClientId = connectedPlayerIds[index];
+            if (targetClientId == networkManager.LocalClientId)
+            {
+                continue;
+            }
+
+            networkManager.CustomMessagingManager.SendNamedMessage(LobbySnapshotMessageName, targetClientId, writer);
+        }
+    }
+
+    private void HandleLobbySnapshot(ulong senderClientId, FastBufferReader reader)
+    {
+        connectedPlayerIds.Clear();
+        reader.ReadValueSafe(out int playerCount);
+        for (int index = 0; index < playerCount; index++)
+        {
+            reader.ReadValueSafe(out ulong clientId);
+            connectedPlayerIds.Add(clientId);
+        }
+    }
+
+    private static void LoadSceneIfNeeded(string sceneName)
+    {
+        if (string.IsNullOrWhiteSpace(sceneName))
+        {
+            return;
+        }
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (activeScene.name == sceneName)
+        {
+            return;
+        }
+
+        SceneManager.LoadScene(sceneName);
     }
 
     private void SaveRoom(string roomCode, string address)
