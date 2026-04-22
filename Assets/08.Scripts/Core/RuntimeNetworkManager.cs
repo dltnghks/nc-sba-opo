@@ -4,6 +4,7 @@ using Unity.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 public sealed class RuntimeNetworkManager : MonoBehaviour
@@ -58,6 +59,7 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     public IReadOnlyList<ulong> ConnectedPlayerIds => connectedPlayerIds;
     public ulong LocalClientId => networkManager != null ? networkManager.LocalClientId : 0;
     public bool IsHost => networkManager != null && networkManager.IsHost;
+    public bool CanStartGameplay => IsHost && NetworkLobbyPlayer.ActivePlayers.Count >= 2 && NetworkLobbyPlayer.ActivePlayers.All(player => player.IsReady);
 
     private void Awake()
     {
@@ -179,6 +181,38 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         connectAddress = address.Trim();
         ApplyConnectionSettings();
         SetIdleStatus();
+    }
+
+    public void ToggleLocalReady()
+    {
+        NetworkLobbyPlayer localPlayer = GetLocalLobbyPlayer();
+        if (localPlayer == null)
+        {
+            SetStatus("Ready toggle failed | local player not spawned");
+            return;
+        }
+
+        bool nextReady = !localPlayer.IsReady;
+        localPlayer.SetReady(nextReady);
+        SetStatus(BuildStatusPrefix(nextReady ? "Ready" : "Not ready"));
+    }
+
+    public void StartGameplayIfReady()
+    {
+        if (!IsHost)
+        {
+            SetStatus("Start failed | host only");
+            return;
+        }
+
+        if (!CanStartGameplay)
+        {
+            SetStatus("Start failed | all players must be ready");
+            return;
+        }
+
+        networkManager.SceneManager.LoadScene(ProjectSceneNames.Gameplay, LoadSceneMode.Single);
+        SetStatus(BuildStatusPrefix("Starting gameplay"));
     }
 
     private void EnsureNetworkObjects()
@@ -405,5 +439,19 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     {
         statusMessage = message;
         Debug.Log($"[RuntimeNetworkManager] {message}", this);
+    }
+
+    private NetworkLobbyPlayer GetLocalLobbyPlayer()
+    {
+        IReadOnlyList<NetworkLobbyPlayer> players = NetworkLobbyPlayer.ActivePlayers;
+        for (int index = 0; index < players.Count; index++)
+        {
+            if (players[index].PlayerClientId == LocalClientId)
+            {
+                return players[index];
+            }
+        }
+
+        return null;
     }
 }

@@ -50,7 +50,9 @@ public sealed class LobbyController : MonoBehaviour
 
         if (hintText != null)
         {
-            hintText.text = "Esc Leave Room | Waiting for spawned players before ready/start work";
+            hintText.text = networkManager.IsHost
+                ? "R Toggle Ready | Enter Start Game | Esc Leave Room"
+                : "R Toggle Ready | Esc Leave Room";
         }
     }
 
@@ -66,6 +68,18 @@ public sealed class LobbyController : MonoBehaviour
         {
             RuntimeNetworkManager.Instance.Shutdown();
             SceneManager.LoadScene(ProjectSceneNames.Bootstrap);
+            return;
+        }
+
+        if (keyboard.rKey.wasPressedThisFrame)
+        {
+            RuntimeNetworkManager.Instance.ToggleLocalReady();
+            return;
+        }
+
+        if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+        {
+            RuntimeNetworkManager.Instance.StartGameplayIfReady();
         }
     }
 
@@ -88,6 +102,7 @@ public sealed class LobbyController : MonoBehaviour
                     ? $"Client {player.PlayerClientId}"
                     : player.PlayerLabel);
                 spawnedBuilder.Append(" [spawned]");
+                spawnedBuilder.Append(player.IsReady ? " [ready]" : " [not ready]");
 
                 if (player.PlayerClientId == networkManager.LocalClientId)
                 {

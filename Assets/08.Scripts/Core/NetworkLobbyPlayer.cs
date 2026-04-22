@@ -9,11 +9,14 @@ public sealed class NetworkLobbyPlayer : NetworkBehaviour
 
     private readonly NetworkVariable<FixedString32Bytes> playerLabel =
         new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<bool> isReady =
+        new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public static IReadOnlyList<NetworkLobbyPlayer> ActivePlayers => activePlayers;
 
     public ulong PlayerClientId => OwnerClientId;
     public string PlayerLabel => playerLabel.Value.ToString();
+    public bool IsReady => isReady.Value;
 
     public override void OnNetworkSpawn()
     {
@@ -39,6 +42,26 @@ public sealed class NetworkLobbyPlayer : NetworkBehaviour
     private void OnDestroy()
     {
         activePlayers.Remove(this);
+    }
+
+    [ServerRpc]
+    public void SetReadyServerRpc(bool ready)
+    {
+        isReady.Value = ready;
+    }
+
+    public void SetReady(bool ready)
+    {
+        if (IsServer)
+        {
+            isReady.Value = ready;
+            return;
+        }
+
+        if (IsOwner)
+        {
+            SetReadyServerRpc(ready);
+        }
     }
 
     private static string BuildLabel(ulong clientId)
