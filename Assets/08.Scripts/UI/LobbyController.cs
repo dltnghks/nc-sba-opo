@@ -1,4 +1,5 @@
 using System.Text;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -49,7 +50,7 @@ public sealed class LobbyController : MonoBehaviour
 
         if (hintText != null)
         {
-            hintText.text = "Esc Leave Room | Waiting for player list sync before ready/start work";
+            hintText.text = "Esc Leave Room | Waiting for spawned players before ready/start work";
         }
     }
 
@@ -70,9 +71,36 @@ public sealed class LobbyController : MonoBehaviour
 
     private static string BuildPlayerList(RuntimeNetworkManager networkManager)
     {
+        IReadOnlyList<NetworkLobbyPlayer> spawnedPlayers = NetworkLobbyPlayer.ActivePlayers;
+        if (spawnedPlayers.Count > 0)
+        {
+            List<NetworkLobbyPlayer> orderedPlayers = new(spawnedPlayers);
+            orderedPlayers.Sort((left, right) => left.PlayerClientId.CompareTo(right.PlayerClientId));
+
+            StringBuilder spawnedBuilder = new("Players");
+            for (int index = 0; index < orderedPlayers.Count; index++)
+            {
+                NetworkLobbyPlayer player = orderedPlayers[index];
+                spawnedBuilder.Append('\n');
+                spawnedBuilder.Append(index + 1);
+                spawnedBuilder.Append(". ");
+                spawnedBuilder.Append(string.IsNullOrWhiteSpace(player.PlayerLabel)
+                    ? $"Client {player.PlayerClientId}"
+                    : player.PlayerLabel);
+                spawnedBuilder.Append(" [spawned]");
+
+                if (player.PlayerClientId == networkManager.LocalClientId)
+                {
+                    spawnedBuilder.Append(" (You)");
+                }
+            }
+
+            return spawnedBuilder.ToString();
+        }
+
         if (networkManager.ConnectedPlayerIds.Count == 0)
         {
-            return "Players\nWaiting for player list...";
+            return "Players\nWaiting for spawned player objects...";
         }
 
         StringBuilder builder = new("Players");
