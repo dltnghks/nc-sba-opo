@@ -5,6 +5,8 @@ using UnityEngine;
 public sealed class RuntimeNetworkManager : MonoBehaviour
 {
     private const ushort DefaultPort = 7777;
+    private const string SavedRoomCodeKey = "bootstrap.saved_room_code";
+    private const string SavedRoomAddressKey = "bootstrap.saved_room_address";
 
     private static RuntimeNetworkManager instance;
 
@@ -14,6 +16,7 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     private NetworkManager networkManager;
     private UnityTransport unityTransport;
     private string statusMessage = "Network idle";
+    private string currentRoomCode = string.Empty;
 
     public static RuntimeNetworkManager Instance
     {
@@ -33,6 +36,10 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     public bool IsSessionActive => networkManager != null && networkManager.IsListening;
     public string ConnectAddress => connectAddress;
     public ushort ConnectPort => connectPort;
+    public string CurrentRoomCode => currentRoomCode;
+    public string SavedRoomCode => PlayerPrefs.GetString(SavedRoomCodeKey, string.Empty);
+    public string SavedRoomAddress => PlayerPrefs.GetString(SavedRoomAddressKey, connectAddress);
+    public bool HasSavedRoom => !string.IsNullOrWhiteSpace(SavedRoomCode);
 
     private void Awake()
     {
@@ -69,7 +76,7 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         ApplyConnectionSettings();
         bool started = networkManager.StartHost();
         SetStatus(started
-            ? $"Host started | {connectAddress}:{connectPort}"
+            ? BuildStatusPrefix("Host started")
             : "Host start failed");
     }
 
@@ -84,20 +91,62 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         ApplyConnectionSettings();
         bool started = networkManager.StartClient();
         SetStatus(started
-            ? $"Client connecting to {connectAddress}:{connectPort}"
+            ? BuildStatusPrefix("Client connecting")
             : "Client start failed");
+    }
+
+    public bool CreateRoom()
+    {
+        string generatedCode = RoomCodeUtility.GenerateRoomCode();
+        currentRoomCode = generatedCode;
+        connectPort = RoomCodeUtility.GetPortForRoomCode(generatedCode);
+        SaveRoom(generatedCode, connectAddress);
+        StartHost();
+        return networkManager != null && networkManager.IsListening;
+    }
+
+    public bool JoinRoom(string roomCode, string address = null)
+    {
+        if (!RoomCodeUtility.TryNormalize(roomCode, out string normalizedCode))
+        {
+            SetStatus("Join failed | invalid room code");
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(address))
+        {
+            connectAddress = address.Trim();
+        }
+
+        currentRoomCode = normalizedCode;
+        connectPort = RoomCodeUtility.GetPortForRoomCode(normalizedCode);
+        SaveRoom(normalizedCode, connectAddress);
+        StartClient();
+        return networkManager != null && networkManager.IsListening;
+    }
+
+    public bool JoinSavedRoom()
+    {
+        string savedRoomCode = SavedRoomCode;
+        if (string.IsNullOrWhiteSpace(savedRoomCode))
+        {
+            SetStatus("Join failed | no saved room");
+            return false;
+        }
+
+        return JoinRoom(savedRoomCode, SavedRoomAddress);
     }
 
     public void Shutdown()
     {
         if (networkManager == null || !networkManager.IsListening)
         {
-            SetStatus($"Network idle | {connectAddress}:{connectPort}");
+            SetIdleStatus();
             return;
         }
 
         networkManager.Shutdown();
-        SetStatus($"Network stopped | {connectAddress}:{connectPort}");
+        SetStatus(BuildStatusPrefix("Network stopped"));
     }
 
     public void SetAddress(string address)
@@ -109,7 +158,7 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
 
         connectAddress = address.Trim();
         ApplyConnectionSettings();
-        SetStatus($"Network idle | {connectAddress}:{connectPort}");
+        SetIdleStatus();
     }
 
     private void EnsureNetworkObjects()
@@ -166,20 +215,20 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
 
     private void HandleServerStarted()
     {
-        SetStatus($"Host listening | {connectAddress}:{connectPort}");
+        SetStatus(BuildStatusPrefix("Host listening"));
     }
 
     private void HandleClientConnected(ulong clientId)
     {
         if (networkManager.IsHost)
         {
-            SetStatus($"Host connected client {clientId} | {connectAddress}:{connectPort}");
+            SetStatus(BuildStatusPrefix($"Host connected client {clientId}"));
             return;
         }
 
         if (networkManager.LocalClientId == clientId)
         {
-            SetStatus($"Client connected to {connectAddress}:{connectPort}");
+            SetStatus(BuildStatusPrefix("Client connected"));
         }
     }
 
@@ -187,14 +236,36 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     {
         if (networkManager.IsHost)
         {
-            SetStatus($"Client {clientId} disconnected | {connectAddress}:{connectPort}");
+            SetStatus(BuildStatusPrefix($"Client {clientId} disconnected"));
             return;
         }
 
         if (networkManager.LocalClientId == clientId || !networkManager.IsListening)
         {
-            SetStatus($"Disconnected | {connectAddress}:{connectPort}");
+            SetStatus(BuildStatusPrefix("Disconnected"));
         }
+    }
+
+    private void SaveRoom(string roomCode, string address)
+    {
+        PlayerPrefs.SetString(SavedRoomCodeKey, roomCode);
+        PlayerPrefs.SetString(SavedRoomAddressKey, address);
+        PlayerPrefs.Save();
+    }
+
+    private void SetIdleStatus()
+    {
+        SetStatus(BuildStatusPrefix("Network idle"));
+    }
+
+    private string BuildStatusPrefix(string label)
+    {
+        if (!string.IsNullOrWhiteSpace(currentRoomCode))
+        {
+            return $"{label} | room {currentRoomCode} | {connectAddress}:{connectPort}";
+        }
+
+        return $"{label} | {connectAddress}:{connectPort}";
     }
 
     private void SetStatus(string message)

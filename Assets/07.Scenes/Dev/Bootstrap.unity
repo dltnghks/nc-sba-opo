@@ -339,6 +339,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BootstrapLoader
   gameplaySceneName: Gameplay
   defaultClientAddress: 127.0.0.1
+  subtitleText: {fileID: 1700000023}
+  hintText: {fileID: 1700000033}
   statusText: {fileID: 1700000043}
 --- !u!4 &1249992975
 Transform:

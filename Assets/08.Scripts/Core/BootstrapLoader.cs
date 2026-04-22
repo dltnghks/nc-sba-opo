@@ -7,6 +7,8 @@ public sealed class BootstrapLoader : MonoBehaviour
 {
     [SerializeField] private string gameplaySceneName = ProjectSceneNames.Gameplay;
     [SerializeField] private string defaultClientAddress = "127.0.0.1";
+    [SerializeField] private TMP_Text subtitleText;
+    [SerializeField] private TMP_Text hintText;
     [SerializeField] private TMP_Text statusText;
 
     private void Start()
@@ -26,11 +28,11 @@ public sealed class BootstrapLoader : MonoBehaviour
             }
             else if (keyboard.hKey.wasPressedThisFrame)
             {
-                HandleHostPressed();
+                HandleCreateRoomPressed();
             }
-            else if (keyboard.cKey.wasPressedThisFrame)
+            else if (keyboard.jKey.wasPressedThisFrame || keyboard.cKey.wasPressedThisFrame)
             {
-                HandleClientPressed();
+                HandleJoinRoomPressed();
             }
             else if (keyboard.xKey.wasPressedThisFrame)
             {
@@ -53,17 +55,17 @@ public sealed class BootstrapLoader : MonoBehaviour
         SceneManager.LoadScene(gameplaySceneName);
     }
 
-    private void HandleHostPressed()
+    private void HandleCreateRoomPressed()
     {
         RuntimeNetworkManager.Instance.SetAddress(defaultClientAddress);
-        RuntimeNetworkManager.Instance.StartHost();
+        RuntimeNetworkManager.Instance.CreateRoom();
         RefreshStatus();
     }
 
-    private void HandleClientPressed()
+    private void HandleJoinRoomPressed()
     {
         RuntimeNetworkManager.Instance.SetAddress(defaultClientAddress);
-        RuntimeNetworkManager.Instance.StartClient();
+        RuntimeNetworkManager.Instance.JoinSavedRoom();
         RefreshStatus();
     }
 
@@ -75,9 +77,30 @@ public sealed class BootstrapLoader : MonoBehaviour
 
     private void RefreshStatus()
     {
+        if (subtitleText != null)
+        {
+            subtitleText.text = "M3 Bootstrap | Space/Enter Single Player | H Create Room | J Join Saved Room | X Shutdown";
+        }
+
+        if (hintText != null)
+        {
+            hintText.text = BuildHintMessage();
+        }
+
         if (statusText != null)
         {
             statusText.text = RuntimeNetworkManager.Instance.StatusMessage;
         }
+    }
+
+    private string BuildHintMessage()
+    {
+        RuntimeNetworkManager networkManager = RuntimeNetworkManager.Instance;
+        if (networkManager.HasSavedRoom)
+        {
+            return $"Saved room {networkManager.SavedRoomCode} targets {networkManager.SavedRoomAddress}:{RoomCodeUtility.GetPortForRoomCode(networkManager.SavedRoomCode)}";
+        }
+
+        return "Create a room on one instance with H, then join it from another instance with J on the same machine.";
     }
 }
