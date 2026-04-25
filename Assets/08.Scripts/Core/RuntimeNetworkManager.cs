@@ -95,6 +95,11 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
 
         ApplyConnectionSettings();
         bool started = networkManager.StartHost();
+        if (started)
+        {
+            RegisterCustomMessages();
+        }
+
         SetStatus(started
             ? BuildStatusPrefix("Host started")
             : "Host start failed");
@@ -110,6 +115,11 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
 
         ApplyConnectionSettings();
         bool started = networkManager.StartClient();
+        if (started)
+        {
+            RegisterCustomMessages();
+        }
+
         SetStatus(started
             ? BuildStatusPrefix("Client connecting")
             : "Client start failed");
@@ -291,6 +301,15 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         networkManager.OnClientConnectedCallback += HandleClientConnected;
         networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
         networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
+    }
+
+    private void RegisterCustomMessages()
+    {
+        if (networkManager.CustomMessagingManager == null)
+        {
+            return;
+        }
+
         networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(LobbySnapshotMessageName);
         networkManager.CustomMessagingManager.RegisterNamedMessageHandler(LobbySnapshotMessageName, HandleLobbySnapshot);
     }
@@ -300,6 +319,16 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         networkManager.OnServerStarted -= HandleServerStarted;
         networkManager.OnClientConnectedCallback -= HandleClientConnected;
         networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
+        UnregisterCustomMessages();
+    }
+
+    private void UnregisterCustomMessages()
+    {
+        if (networkManager.CustomMessagingManager == null)
+        {
+            return;
+        }
+
         networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(LobbySnapshotMessageName);
     }
 
