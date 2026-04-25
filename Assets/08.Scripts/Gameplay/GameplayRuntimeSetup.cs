@@ -36,10 +36,7 @@ public static class GameplayRuntimeSetup
             CreateRoundState();
         }
 
-        if (Object.FindAnyObjectByType<PrototypeHudController>() == null)
-        {
-            CreateHud();
-        }
+        ConfigureHudIfPresent();
 
         if (Object.FindAnyObjectByType<PrototypeResultFlowController>() == null)
         {
@@ -98,10 +95,15 @@ public static class GameplayRuntimeSetup
             Resources.Load<IntEventChannelSO>(LivesChangedEventResourcePath));
     }
 
-    private static void CreateHud()
+    private static void ConfigureHudIfPresent()
     {
-        GameObject hud = new("Prototype HUD");
-        PrototypeHudController hudController = hud.AddComponent<PrototypeHudController>();
+        PrototypeHudController hudController = Object.FindAnyObjectByType<PrototypeHudController>();
+        if (hudController == null)
+        {
+            Debug.LogWarning("PrototypeHudController is not placed in the Gameplay scene.");
+            return;
+        }
+
         hudController.Configure(
             Resources.Load<IntEventChannelSO>(ScoreChangedEventResourcePath),
             Resources.Load<IntEventChannelSO>(LivesChangedEventResourcePath),

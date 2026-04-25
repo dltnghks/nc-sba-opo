@@ -1,44 +1,49 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 public sealed class BootstrapLoader : MonoBehaviour
 {
     [SerializeField] private string gameplaySceneName = ProjectSceneNames.Gameplay;
-
-    private InputAction startAction;
-
-    private void Awake()
-    {
-        startAction = new InputAction(name: "StartGame", type: InputActionType.Button);
-        startAction.AddBinding("<Keyboard>/space");
-        startAction.AddBinding("<Keyboard>/enter");
-        startAction.AddBinding("<Mouse>/leftButton");
-        startAction.AddBinding("<Gamepad>/buttonSouth");
-    }
-
-    private void OnEnable()
-    {
-        startAction.Enable();
-    }
-
-    private void OnDisable()
-    {
-        startAction.Disable();
-    }
-
-    private void OnDestroy()
-    {
-        startAction.Dispose();
-    }
+    [SerializeField] private string defaultClientAddress = "127.0.0.1";
+    [SerializeField] private TMP_Text subtitleText;
+    [SerializeField] private TMP_Text hintText;
+    [SerializeField] private TMP_Text statusText;
 
     private void Start()
     {
-        BuildStartScreen();
+        RuntimeNetworkManager.Instance.SetAddress(defaultClientAddress);
+        RefreshStatus();
     }
 
     private void Update()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null)
+        {
+            if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame)
+            {
+                HandleSinglePlayerPressed();
+            }
+            else if (keyboard.hKey.wasPressedThisFrame)
+            {
+                HandleCreateRoomPressed();
+            }
+            else if (keyboard.jKey.wasPressedThisFrame || keyboard.cKey.wasPressedThisFrame)
+            {
+                HandleJoinRoomPressed();
+            }
+            else if (keyboard.xKey.wasPressedThisFrame)
+            {
+                HandleShutdownPressed();
+            }
+        }
+
+        RefreshStatus();
+    }
+
+    private void HandleSinglePlayerPressed()
     {
         if (string.IsNullOrWhiteSpace(gameplaySceneName))
         {
@@ -46,91 +51,56 @@ public sealed class BootstrapLoader : MonoBehaviour
             return;
         }
 
-        if (startAction.WasPressedThisFrame())
+        RuntimeNetworkManager.Instance.Shutdown();
+        SceneManager.LoadScene(gameplaySceneName);
+    }
+
+    private void HandleCreateRoomPressed()
+    {
+        RuntimeNetworkManager.Instance.SetAddress(defaultClientAddress);
+        RuntimeNetworkManager.Instance.CreateRoom();
+        RefreshStatus();
+    }
+
+    private void HandleJoinRoomPressed()
+    {
+        RuntimeNetworkManager.Instance.SetAddress(defaultClientAddress);
+        RuntimeNetworkManager.Instance.JoinSavedRoom();
+        RefreshStatus();
+    }
+
+    private void HandleShutdownPressed()
+    {
+        RuntimeNetworkManager.Instance.Shutdown();
+        RefreshStatus();
+    }
+
+    private void RefreshStatus()
+    {
+        if (subtitleText != null)
         {
-            SceneManager.LoadScene(gameplaySceneName);
+            subtitleText.text = "M3 Bootstrap | Space/Enter Single Player | H Create Room | J Join Saved Room | X Shutdown";
+        }
+
+        if (hintText != null)
+        {
+            hintText.text = BuildHintMessage();
+        }
+
+        if (statusText != null)
+        {
+            statusText.text = RuntimeNetworkManager.Instance.StatusMessage;
         }
     }
 
-    private void BuildStartScreen()
+    private string BuildHintMessage()
     {
-        Canvas canvas = gameObject.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        gameObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        gameObject.AddComponent<GraphicRaycaster>();
-
-        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        if (font == null)
+        RuntimeNetworkManager networkManager = RuntimeNetworkManager.Instance;
+        if (networkManager.HasSavedRoom)
         {
-            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            return $"Saved room {networkManager.SavedRoomCode} targets {networkManager.SavedRoomAddress}:{RoomCodeUtility.GetPortForRoomCode(networkManager.SavedRoomCode)}";
         }
 
-        CreateText(
-            "TitleText",
-            font,
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0f, 48f),
-            new Vector2(720f, 80f),
-            44,
-            TextAnchor.MiddleCenter,
-            "NC SBA OPO");
-
-        CreateText(
-            "SubtitleText",
-            font,
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0f, -12f),
-            new Vector2(760f, 48f),
-            22,
-            TextAnchor.MiddleCenter,
-            "Single-player core milestone build");
-
-        CreateText(
-            "StartHintText",
-            font,
-            new Vector2(0.5f, 0f),
-            new Vector2(0.5f, 0f),
-            new Vector2(0.5f, 0f),
-            new Vector2(0f, 64f),
-            new Vector2(760f, 48f),
-            24,
-            TextAnchor.MiddleCenter,
-            "Press Space, Enter, Click, or A to start");
-    }
-
-    private void CreateText(
-        string objectName,
-        Font font,
-        Vector2 anchorMin,
-        Vector2 anchorMax,
-        Vector2 pivot,
-        Vector2 anchoredPosition,
-        Vector2 sizeDelta,
-        int fontSize,
-        TextAnchor alignment,
-        string content)
-    {
-        GameObject textObject = new(objectName);
-        textObject.transform.SetParent(transform, false);
-
-        Text text = textObject.AddComponent<Text>();
-        text.font = font;
-        text.fontSize = fontSize;
-        text.alignment = alignment;
-        text.color = Color.white;
-        text.text = content;
-        text.horizontalOverflow = HorizontalWrapMode.Overflow;
-        text.verticalOverflow = VerticalWrapMode.Overflow;
-
-        RectTransform rectTransform = text.GetComponent<RectTransform>();
-        rectTransform.anchorMin = anchorMin;
-        rectTransform.anchorMax = anchorMax;
-        rectTransform.pivot = pivot;
-        rectTransform.anchoredPosition = anchoredPosition;
-        rectTransform.sizeDelta = sizeDelta;
+        return "Create a room on one instance with H, then join it from another instance with J on the same machine.";
     }
 }
