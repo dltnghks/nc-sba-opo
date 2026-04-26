@@ -14,6 +14,7 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     private const string SavedRoomAddressKey = "bootstrap.saved_room_address";
     private const string LobbySnapshotMessageName = "lobby-snapshot";
     private const uint RuntimeLobbyPlayerPrefabHash = 0x4E43504F;
+    private const uint RuntimeGameplayStatePrefabHash = 0x4E47504F;
 
     private static readonly FieldInfo GlobalObjectIdHashField =
         typeof(NetworkObject).GetField("GlobalObjectIdHash", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -33,6 +34,7 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
     private string currentRoomCode = string.Empty;
     private readonly List<ulong> connectedPlayerIds = new();
     private GameObject runtimeLobbyPlayerPrefab;
+    private GameObject runtimeGameplayStatePrefab;
 
     public static RuntimeNetworkManager Instance
     {
@@ -225,6 +227,25 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         SetStatus(BuildStatusPrefix("Starting gameplay"));
     }
 
+    public void SpawnGameplayStateIfNeeded()
+    {
+        EnsureNetworkObjects();
+        if (!IsHost || networkManager == null || !networkManager.IsListening)
+        {
+            return;
+        }
+
+        NetworkGameplayState activeState = NetworkGameplayState.Instance;
+        if (activeState != null && activeState.IsSpawned)
+        {
+            return;
+        }
+
+        GameObject stateObject = Instantiate(runtimeGameplayStatePrefab);
+        NetworkObject networkObject = stateObject.GetComponent<NetworkObject>();
+        networkObject.Spawn(true);
+    }
+
     private void EnsureNetworkObjects()
     {
         if (networkManager == null)
@@ -249,6 +270,7 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         networkManager.NetworkConfig.NetworkTransport = unityTransport;
         networkManager.NetworkConfig.ForceSamePrefabs = false;
         EnsureRuntimeLobbyPlayerPrefab();
+        EnsureRuntimeGameplayStatePrefab();
         ApplyConnectionSettings();
     }
 
@@ -267,6 +289,19 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
         networkManager.NetworkConfig.PlayerPrefab = runtimeLobbyPlayerPrefab;
     }
 
+    private void EnsureRuntimeGameplayStatePrefab()
+    {
+        if (runtimeGameplayStatePrefab == null)
+        {
+            runtimeGameplayStatePrefab = CreateRuntimeGameplayStatePrefab();
+        }
+
+        if (!networkManager.NetworkConfig.Prefabs.Contains(runtimeGameplayStatePrefab))
+        {
+            networkManager.AddNetworkPrefab(runtimeGameplayStatePrefab);
+        }
+    }
+
     private GameObject CreateRuntimeLobbyPlayerPrefab()
     {
         GameObject root = new("Runtime Lobby Player Prefab");
@@ -278,6 +313,22 @@ public sealed class RuntimeNetworkManager : MonoBehaviour
 
         GlobalObjectIdHashField?.SetValue(networkObject, RuntimeLobbyPlayerPrefabHash);
         PrefabGlobalObjectIdHashField?.SetValue(networkObject, RuntimeLobbyPlayerPrefabHash);
+        IsSceneObjectProperty?.SetValue(networkObject, false);
+
+        return root;
+    }
+
+    private GameObject CreateRuntimeGameplayStatePrefab()
+    {
+        GameObject root = new("Runtime Gameplay State Prefab");
+        root.transform.SetParent(transform, false);
+        root.hideFlags = HideFlags.HideInHierarchy;
+
+        NetworkObject networkObject = root.AddComponent<NetworkObject>();
+        root.AddComponent<NetworkGameplayState>();
+
+        GlobalObjectIdHashField?.SetValue(networkObject, RuntimeGameplayStatePrefabHash);
+        PrefabGlobalObjectIdHashField?.SetValue(networkObject, RuntimeGameplayStatePrefabHash);
         IsSceneObjectProperty?.SetValue(networkObject, false);
 
         return root;

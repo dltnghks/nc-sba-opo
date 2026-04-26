@@ -24,6 +24,7 @@ public static class GameplayRuntimeSetup
             return;
         }
 
+        RuntimeNetworkManager.Instance.SpawnGameplayStateIfNeeded();
         BuildStageLayout();
 
         if (Object.FindAnyObjectByType<PrototypeSessionState>() == null)

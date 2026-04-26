@@ -1,13 +1,18 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public sealed class PrototypeRoundState : MonoBehaviour
 {
     [SerializeField] private StringEventChannelSO roundEndedEvent;
-    [SerializeField] private bool roundEnded;
-    [SerializeField] private string lastResult;
+    [FormerlySerializedAs("roundEnded")]
+    [SerializeField] private bool cachedRoundEnded;
+    [FormerlySerializedAs("lastResult")]
+    [SerializeField] private string cachedLastResult;
 
-    public bool IsRoundEnded => roundEnded;
-    public string LastResult => lastResult;
+    private NetworkGameplayState networkState;
+
+    public bool IsRoundEnded => TryResolveNetworkState() ? networkState.IsRoundEnded : cachedRoundEnded;
+    public string LastResult => TryResolveNetworkState() ? networkState.RoundResult : cachedLastResult;
 
     private void Awake()
     {
@@ -19,7 +24,16 @@ public sealed class PrototypeRoundState : MonoBehaviour
 
     private void Update()
     {
-        if (roundEnded)
+        if (TryResolveNetworkState())
+        {
+            SyncFromNetworkState();
+            if (!networkState.HasStateAuthority)
+            {
+                return;
+            }
+        }
+
+        if (IsRoundEnded)
         {
             return;
         }
@@ -32,12 +46,23 @@ public sealed class PrototypeRoundState : MonoBehaviour
 
     public void HandleBallLost(PrototypeBallController ball)
     {
-        if (roundEnded)
+        if (IsRoundEnded)
         {
             return;
         }
 
         PrototypeSessionState sessionState = FindAnyObjectByType<PrototypeSessionState>();
+        if (TryResolveNetworkState() && !networkState.HasStateAuthority)
+        {
+            sessionState?.TryConsumeLife();
+            if (ball != null && sessionState != null && sessionState.CurrentLives > 1)
+            {
+                ball.ResetToPaddle();
+            }
+
+            return;
+        }
+
         if (sessionState != null && sessionState.TryConsumeLife())
         {
             if (ball != null)
@@ -60,17 +85,35 @@ public sealed class PrototypeRoundState : MonoBehaviour
 
     private void EndRound(string result)
     {
-        roundEnded = true;
-        lastResult = result;
+        if (TryResolveNetworkState())
+        {
+            networkState.EndRound(result);
+        }
+
+        ApplyRoundResult(result, true);
+    }
+
+    private void ApplyRoundResult(string result, bool playAudio)
+    {
+        if (cachedRoundEnded)
+        {
+            return;
+        }
+
+        cachedRoundEnded = true;
+        cachedLastResult = result;
         PrototypeSessionState sessionState = FindAnyObjectByType<PrototypeSessionState>();
         string sessionSummary = sessionState != null
             ? $" | Score: {sessionState.Score} | Lives: {sessionState.CurrentLives}"
             : string.Empty;
 
-        PrototypeAudioManager audioManager = FindAnyObjectByType<PrototypeAudioManager>();
-        if (audioManager != null)
+        if (playAudio)
         {
-            audioManager.PlayRoundEnd(result == "Clear");
+            PrototypeAudioManager audioManager = FindAnyObjectByType<PrototypeAudioManager>();
+            if (audioManager != null)
+            {
+                audioManager.PlayRoundEnd(result == "Clear");
+            }
         }
 
         Debug.Log($"Round Result: {result}{sessionSummary}");
@@ -80,5 +123,29 @@ public sealed class PrototypeRoundState : MonoBehaviour
     public void Configure(StringEventChannelSO roundEndedEventChannel)
     {
         roundEndedEvent = roundEndedEventChannel;
+        TryResolveNetworkState();
+        SyncFromNetworkState();
+    }
+
+    private bool TryResolveNetworkState()
+    {
+        if (networkState != null)
+        {
+            return true;
+        }
+
+        networkState = NetworkGameplayState.Instance;
+        return networkState != null;
+    }
+
+    private void SyncFromNetworkState()
+    {
+        if (networkState == null || !networkState.IsRoundEnded)
+        {
+            return;
+        }
+
+        string result = networkState.RoundResult;
+        ApplyRoundResult(string.IsNullOrWhiteSpace(result) ? "Unknown" : result, false);
     }
 }
